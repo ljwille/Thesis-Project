@@ -46,28 +46,4 @@ def CalibrationAndCleaning(tray, name): #Adapted from Chang Hyon's EHE L2
         )
 
         
-    #SeededRT and TimeWindow cleaning on RecoPulses
-    #if not frame.Has(Pulses):
-    #    if frame.Has("InIcePulses"):
-    #        inputPulses = "InIcePulses"
-    #    else:
-    #        inputPulses = "OfflinePulses"
-    #    stConfigService = I3DOMLinkSeededRTConfigurationService(
-    #            allowSelfCoincidence    = False,           # Default
-    #            useDustlayerCorrection  = True,            # Default
-    #            dustlayerUpperZBoundary = 0*I3Units.m,     # Default
-    #            dustlayerLowerZBoundary = -150*I3Units.m,  # Default
-    #            ic_ic_RTTime            = 1000*I3Units.ns, # Default
-    #            ic_ic_RTRadius          = 150*I3Units.m    # Default
-    #            )
-    #        
-    #    tray.AddModule("I3SeededRTCleaning_RecoPulse_Module", "seededRTcleaning",
-    #            STConfigService         = stConfigService,
-    #            InputHitSeriesMapName   = inputPulses,
-    #            OutputHitSeriesMapName  = Pulses,
-    #            SeedProcedure           = "AllHLCHits",
-    #            MaxNIterations          = -1,
-    #            Streams                 = [icetray.I3Frame.Physics]
-    #            )
-    
     return

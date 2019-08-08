@@ -26,6 +26,7 @@ load("libcscd-llh")
 load("libphotonics-service")
 load("libDomTools")    
 
+#Running IceTray cascade reconstruction.
 @icetray.traysegment
 def OfflineCascadeReco( tray, name, If = lambda f: True, suffix = '',
                         Pulses = '', 
@@ -212,7 +213,7 @@ def OfflineCascadeReco_noDC( tray, name, If = lambda f: True, suffix = '_noDC_DP
 @icetray.traysegment
 def MuonReco(tray, name, Pulses='', If=lambda f: True):
 ##-----------This part was adapted from Chang Hyon's Big Bird Reonstruction script------------
-## SPE 32 reconstruction
+## Running IceTray track reconstructions.
 ##############################################################################################
     # Services to do Gulliver reconstruction
     tray.AddService("I3SimpleParametrizationFactory","SimpleTrack",
@@ -283,10 +284,6 @@ def MuonReco(tray, name, Pulses='', If=lambda f: True):
 
 @icetray.traysegment
 def MuonReco_noDC(tray, name, Pulses='', If=lambda f: True):
-##-----------This part was adapted from Chang Hyon's Big Bird Reonstruction script------------
-## SPE 32 reconstruction
-##############################################################################################
-    # Services to do Gulliver reconstruction
     tray.AddService("I3SimpleParametrizationFactory","SimpleTrack_noDC",
                     StepX=20*I3Units.m,                                     # ! 20m step size
                     StepY=20*I3Units.m,                                     # ! 20m step size
@@ -387,6 +384,8 @@ def SplineReco(tray, name, Pulses='SplitInIcePulses', If=lambda f: True):
         TrackSeedList=["SPEFit32_DP"], BareMuTimingSpline=timingSplinePath,
         BareMuAmplitudeSpline=amplitudeSplinePath, EnergyEstimators=EnEstis)
 
+    
+#Running more sophisticated IceTray cascade reconstruction.
 @icetray.traysegment
 def Monopod(tray, name, Pulses='OfflinePulses', If=lambda f: True):
     
@@ -403,16 +402,9 @@ def Monopod(tray, name, Pulses='OfflinePulses', If=lambda f: True):
 
     cascade_service_spicemie = photonics_service.I3PhotoSplineService('/cvmfs/icecube.opensciencegrid.org/data/photon-tables/splines/ems_mie_z20_a10.abs.fits', '/cvmfs/icecube.opensciencegrid.org/data/photon-tables/splines/ems_mie_z20_a10.prob.fits', 0)
     
-    #add missing time window
 
     tray.AddModule(icecube.wavedeform.AddMissingTimeWindow, "add-timewindow", Pulses=Pulses, WaveformTimeRange="CalibratedWaveformRange")
     
-    #def time_window(frame):
-    #    print "Pulse start time: ", frame['OfflinePulsesTimeRange'].start
-    #    print "Pulse stop time: ", frame['OfflinePulsesTimeRange'].stop
-    #tray.AddModule(time_window, 'time-win')
-
-
     tray.AddSegment(millipede.MonopodFit, 'MonopodAngularGuess', 
                     #Pulses='SplitOfflinePulses',
                     Pulses=Pulses,
@@ -425,7 +417,6 @@ def Monopod(tray, name, Pulses='OfflinePulses', If=lambda f: True):
                     #ExcludedDOMs=['CalibrationErrata', 'SaturatedDOMs', 'BadDomsListSLC', 'InIceErrata'],
                     ExcludedDOMs=['OfflineInIceCalibrationErrata', 'SaturatedDOMs', 'BadDomsList', 'BadDomsListSLC', 'InIceErrata'],
                     PartialExclusion=False)
-    print 'first attempt complete'
 
     tray.AddSegment(millipede.MonopodFit, 'MonopodAngular',
                     #Pulses='SplitOfflinePulses',

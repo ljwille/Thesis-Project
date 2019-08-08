@@ -5,10 +5,9 @@ from icecube import icetray, dataio, dataclasses, DomTools
 
 load('VHESelfVeto')
 
+#Find charge deposited using IceTray tools.
 @icetray.traysegment
 def CalQTot(tray, name, pulses='', If=True):
-	#pulses = 'SplitOfflinePulses'
-	#pulses = 'OfflinePulses' #CORSIKA, nue, numu, nutau
 	
 	tray.AddModule('HomogenizedQTot', 'qtot_total', Pulses=pulses)
 	#tray.AddModule(lambda fr: fr['QTot'].value > 1000, 'qtotcut')

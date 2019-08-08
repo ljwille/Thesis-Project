@@ -2,6 +2,7 @@
 # Calculate perpendicular distances from an event x-y vertex to the detector polygon side surfaces.
 # The shortest distance to one of the surfaces can be used as a containment cut variable
 # Author: Donglian Xu   Date: 04/06/2014
+# Updated by: Logan Wille in Nov. 2018
 # ------------------------------------------------------------------------------------------------
 
 import icecube

@@ -1,6 +1,8 @@
 #!/bin/sh /cvmfs/icecube.opensciencegrid.org/py2-v3.0.1/icetray-start
 #METAPROJECT icerec/V05-02-00
 
+##Classification Algorithm written by Logan J. Wille in 2018 for thesis project. 
+
 import icecube
 from icecube import dataclasses, dataio#, weighting
 from I3Tray import *
@@ -130,13 +132,14 @@ print "Input files: ", files
 
 year = options.year
 
+#Reading input files and Geometry file. Removing data that is not needed or will be remade using different calibration.
+
 tray.AddModule('I3Reader', 'reader',
                SkipKeys=["CalibrationErrata", "I3ModuleGeoMap", "I3OMGeoMap", "I3StationGeoMap", "Subdetectors", "OfflineInIceCalibrationErrata", "CalibrationWaveformRange", "CalibratedWaveformRange",'OfflinePulsesTimeRange'], FilenameList = files)
 
-#tray.AddSegment(Filter.Filter13, "ehe-filtering")
 
 
-# Waveform calibration
+# Calibrating time-series waveform data.
 
 def EHEfilter(frame):
     if frame["FilterMask"].has_key("EHEFilter_10"): #IC79
@@ -154,10 +157,11 @@ if year >=2012:
     
 tray.AddSegment(CalibrationAndCleaning.CalibrationAndCleaning, "cal-and-clean")        
 
-# Raise charge cut to log10(QTot)>3.3, changed on July 17, 2014
+
+# Baseline charge cut to remove vast majority of background events. Most tau neutrinos have charge of atleast 10,000.
 tray.AddModule(lambda frame: frame["CausalQTot"].value>1995.26231497, "qtotcut")
 
-# Double pulse waveform identification. DISCARD events don't have double pulse waveforms.
+# Double pulse waveform identification. Searches time-series waveforms to find two pulse features that is characteristic of tau neutrinos.
 tray.AddSegment( TauDP_DifferentialWaveform_reOP.CalWaveformDerivatives, "dp_cutsLC",
                            DiscardEvents=True, 
                            WfQtot=10000,
@@ -173,34 +177,34 @@ tray.AddSegment( TauDP_DifferentialWaveform_reOP.CalWaveformDerivatives, "dp_cut
                            der_step = 4)
 
     
-tray.AddSegment(Reconstruction.OfflineCascadeReco, "CscdReco", suffix="_DP", Pulses='HLCPulses')
-tray.AddSegment(Reconstruction.MuonReco, "MuonReco", Pulses='HLCPulses')
+    
+#IceCube event reconstructions, one for enlongated track events, the other for spherical cascade events. Tau neutrinos tend to have spherical events and so will be better reconstructed with the cascade reconstruction.
+pulses='HLCPulses'
+tray.AddSegment(Reconstruction.OfflineCascadeReco, "CscdReco", suffix="_DP", Pulses=pulses)
+tray.AddSegment(Reconstruction.MuonReco, "MuonReco", Pulses=pulses)
+tray.AddSegment(Reconstruction.OfflineCascadeReco_noDC, "CscdReco_noDC", suffix="_noDC_DP", Pulses=pulses)
+tray.AddSegment(Reconstruction.MuonReco_noDC, "MuonReco_noDC", Pulses=pulses)
 
-
-# rlogl cut
+#Remove events that aren't well reconstructed by cascade reconstructions.
 tray.Add(lambda fr: (fr['SPEFit32_DPFitParams'].rlogl - fr['CascadeLlhVertexFit_DPParams'].ReducedLlh)>-0.5, 'rlogl_cut')
-tray.Add(lambda fr: (fr['depthFirstHit'].value)<475, 'z_cut')
-
-
+tray.Add(lambda fr: (fr['SPEFit32_noDC_DPFitParams'].rlogl - fr['CascadeLlhVertexFit_noDC_DPParams'].ReducedLlh)>-0.15, 'noDC_rlogl_cut')
 def rlogl(fr):
     fr['rlogl'] = dataclasses.I3Double(fr['SPEFit32_DPFitParams'].rlogl - fr['CascadeLlhVertexFit_DPParams'].ReducedLlh)
     return 1
 tray.AddModule(rlogl,'rlogl')
 
+#Remove events that enter from the very top of the detector, tau neutrinos occur everywhere in the detector, majority of background come from the top.
+tray.Add(lambda fr: (fr['depthFirstHit'].value)<475, 'z_cut')
+
+
+#Finding first interaction point of events in the detector and distance to a boundary of the detector. Background events tend to start near edge of the detector, tau neutrinos are evenly distributed throughout detector.
 if year == 2010:
     geo ='ic79'
 elif year >= 2011:
     geo = 'ic86'
-    
-pulses='HLCPulses'
-    
-tray.AddSegment(Reconstruction.OfflineCascadeReco_noDC, "CscdReco_noDC", suffix="_noDC_DP", Pulses=pulses)
-tray.AddSegment(Reconstruction.MuonReco_noDC, "MuonReco_noDC", Pulses=pulses)
-
 tray.AddSegment(PolygonContainment.PolygonContainment, 'polyfit', geometry = geo,RecoVertex='VHESelfVetoVertexPos',outputname='_Veto')
 
-tray.Add(lambda fr: (fr['SPEFit32_noDC_DPFitParams'].rlogl - fr['CascadeLlhVertexFit_noDC_DPParams'].ReducedLlh)>-0.15, 'noDC_rlogl_cut')
-
+#Removing events that occur near top, edge, and corners of detector.
 contain = 10
 b = 400
 m = - 1./3.
@@ -211,12 +215,8 @@ tray.Add(lambda fr: (fr["LeastDistanceToPolygon_Veto"].value)>contain, 'contain'
 tray.Add(lambda fr: (fr["LeastDistanceToPolygon_Veto"].value)>bottome  or fr['VHESelfVetoVertexPos'].z>bottomz, 'bottom corner')
 tray.Add(lambda fr: ((m * fr["LeastDistanceToPolygon_Veto"].value + fr['VHESelfVetoVertexPos'].z) < b), 'top corner')
 
-pframes = 0
-def count_physics(fr):
-    global pframes
-    pframes += 1
-    print fr['I3EventHeader']
-
+    
+#Fixing bug in IceTray data stream.
 def fixDST(fr, pulseMaskName, newPulseMapName):
     if pulseMaskName in fr:
         pulsemap = fr[pulseMaskName].apply(fr)
@@ -234,11 +234,20 @@ def fixDST(fr, pulseMaskName, newPulseMapName):
 doFixDST = lambda fr: fixDST(fr, pulses, 'Fixed'+pulses)
 tray.Add(doFixDST, Streams=[icetray.I3Frame.DAQ,icetray.I3Frame.Physics])
     
+    
+#Counting number of events that have passed in a file. File discarded and not saved if no events have passed.
+pframes = 0
+def count_physics(fr):
+    global pframes
+    pframes += 1
+    print fr['I3EventHeader']
 tray.AddModule(count_physics, "count",Streams = [icetray.I3Frame.Physics])
 tray.AddSegment(Reconstruction.Monopod, 'monopod', Pulses='Fixed'+pulses)
 #tray.AddSegment(Reconstruction.Monopod, 'monopod', Pulses=pulses)
 
 
+
+#Meta-data flags for data types and event weighting to return to reality.
 def CorsEventType (frame):
     frame["EventType"] = icetray.I3Int(8)
     return
@@ -250,6 +259,7 @@ if options.MC == 2:
 if options.MC == 1:
     tray.AddSegment(EventType.EventType, "nufinder")
 
+    
 if options.MC == 0 and options.condense == True:
     outputstreams = [icetray.I3Frame.Geometry, icetray.I3Frame.Calibration, icetray.I3Frame.DetectorStatus,icetray.I3Frame.Physics, icetray.I3Frame.DAQ]
 else:
@@ -260,7 +270,7 @@ if options.condense == True:
 else:
     outputfile = options.outputpath + options.outputfile
 
-   
+#Information to be saved in HDF5 file for post selection analysis. 
     
 FrameObjectsToKeep = ['Amp1',
                       'Amp2',
@@ -347,6 +357,8 @@ FrameObjectsToKeep = ['Amp1',
                       "LeastDistanceToPolygon_Veto"
                       ]
 
+
+#Saving selected events.
 tray.AddSegment( hdfwriter.I3HDFWriter, 'hdf5writer',
                 Output = outputfile +'.h5',
                 Keys = FrameObjectsToKeep,
